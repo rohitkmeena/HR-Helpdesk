@@ -1,0 +1,8 @@
+django>=5.0
+google-genai>=2.0.0
+psycopg[binary]>=3.2.0
+dj-database-url>=2.1.0
+python-dotenv>=1.0.0
+dj-database-url
+psycopg[binary]
+google-genai
