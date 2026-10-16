@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HR Helpdesk - AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .pre-wrap { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    
+    <!-- Header -->
+    <header class="mb-8 border-b pb-6 border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="p-2.5 bg-blue-600 text-white rounded-xl shadow-sm text-2xl font-bold">🏢</span>
+            <div>
+              <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">HR Helpdesk</h1>
+              <p class="text-sm text-slate-500">Autonomous AI Assistant powered by Google Gemini & Supabase PostgreSQL</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Status Pills -->
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full font-medium {% if db_ok %}bg-emerald-100 text-emerald-800 border border-emerald-300{% else %}bg-amber-100 text-amber-800 border border-amber-300{% endif %}">
+            <span class="w-2 h-2 rounded-full mr-1.5 {% if db_ok %}bg-emerald-500{% else %}bg-amber-500{% endif %}"></span>
+            PostgreSQL (Supabase): {% if db_ok %}Connected{% else %}Check Connection{% endif %}
+          </span>
+
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full font-medium {% if gemini_configured %}bg-blue-100 text-blue-800 border border-blue-300{% else %}bg-rose-100 text-rose-800 border border-rose-300{% endif %}">
+            <span class="w-2 h-2 rounded-full mr-1.5 {% if gemini_configured %}bg-blue-500{% else %}bg-rose-500 animate-pulse{% endif %}"></span>
+            Gemini API: {% if gemini_configured %}Ready{% else %}Key Missing in .env{% endif %}
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Question Box -->
+    <main>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+        <form id="helpdeskForm" method="POST" action="{% url 'helpdesk_index' %}">
+          {% csrf_token %}
+          <label for="questionInput" class="block text-sm font-semibold text-slate-700 mb-2">
+            Ask an HR Question
+          </label>
+          <div class="relative">
+            <textarea
+              id="questionInput"
+              name="question"
+              rows="3"
+              required
+              placeholder="e.g., What is the annual leave balance for employee EMP001? Or what is our remote work policy?"
+              class="w-full rounded-xl border border-slate-300 p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none shadow-inner"
+            >{{ question }}</textarea>
+          </div>
+
+          <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span class="text-xs text-slate-400">
+              ⚡ Max 5 tool rounds • Strictly verified from database • No invented answers
+            </span>
+            <button
+              type="submit"
+              id="submitBtn"
+              class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span id="btnText">Ask Assistant</span>
+              <svg id="loadingSpinner" class="hidden animate-spin ml-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </button>
+          </div>
+        </form>
+
+        <!-- Quick Sample Prompts -->
+        <div class="mt-6 pt-5 border-t border-slate-100">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Quick Sample Prompts (Click to test):</p>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="What is the leave balance for Alice Johnson (EMP001)?">
+              🌴 Leave balance for EMP001
+            </button>
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="Show me the latest payslip details for Bob Smith (EMP002).">
+              💵 Latest payslip for EMP002
+            </button>
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="What is the company policy for remote work and home internet reimbursement?">
+              💻 Remote Work Policy
+            </button>
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="How many business days of leave are there between 2026-10-12 and 2026-10-16?">
+              📅 Calculate leave days
+            </button>
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="Submit an annual leave request for EMP003 from 2026-11-09 to 2026-11-13 for family vacation.">
+              📝 Submit leave request
+            </button>
+            <button type="button" class="sample-prompt px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg transition-colors border border-slate-200" data-text="What is today's date and time?">
+              ⏰ Current date & time
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Section Container -->
+      <div id="resultsContainer" class="{% if not result %}hidden{% endif %} space-y-6">
+        
+        <!-- Answer Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+              <h2 class="font-bold text-sm tracking-wide uppercase text-slate-200">AI Assistant Answer</h2>
+            </div>
+            <span id="roundsBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              Tool Rounds: <strong id="roundsCount">{{ result.rounds|default:"0" }}</strong> / 5
+            </span>
+          </div>
+
+          <div class="p-6">
+            <div id="answerContent" class="text-slate-800 pre-wrap leading-relaxed text-sm sm:text-base">
+              {{ result.answer|default:"" }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tool Execution Trace (Transparency for judges/demo) -->
+        <div id="traceSection" class="bg-slate-900 text-slate-200 rounded-2xl shadow-sm border border-slate-800 p-6 {% if not result.trace %}hidden{% endif %}">
+          <details id="traceDetails" open>
+            <summary class="cursor-pointer font-semibold text-sm flex items-center justify-between text-slate-300 hover:text-white select-none">
+              <span class="flex items-center gap-2">
+                <span>⚙️</span>
+                <span>AI Function Calling Execution Trace</span>
+                <span id="traceCountBadge" class="ml-2 text-xs px-2 py-0.5 rounded bg-blue-900 text-blue-200">
+                  {{ result.trace|length|default:"0" }} call(s)
+                </span>
+              </span>
+              <span class="text-xs text-slate-400">Click to expand/collapse</span>
+            </summary>
+
+            <div id="traceList" class="mt-4 space-y-3 pt-3 border-t border-slate-800 text-xs font-mono">
+              {% if result.trace %}
+                {% for call in result.trace %}
+                  <div class="bg-slate-950 rounded-xl p-3 border border-slate-800">
+                    <div class="flex items-center justify-between text-blue-400 mb-2 font-semibold">
+                      <span>Round {{ call.round }}: <span class="text-amber-300">{{ call.tool }}</span>()</span>
+                    </div>
+                    <div class="mb-2">
+                      <span class="text-slate-500 font-sans">Arguments:</span>
+                      <pre class="bg-slate-900 text-emerald-300 p-2 rounded mt-1 overflow-x-auto">{{ call.arguments }}</pre>
+                    </div>
+                    <div>
+                      <span class="text-slate-500 font-sans">Database / Python Output:</span>
+                      <pre class="bg-slate-900 text-slate-300 p-2 rounded mt-1 overflow-x-auto">{{ call.result }}</pre>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </details>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-xs text-slate-400">
+      HR-Helpdesk Prototype • Django + Google Gemini + Supabase PostgreSQL
+    </footer>
+
+  </div>
+
+  <script>
+    // Sample prompt click handler
+    document.querySelectorAll('.sample-prompt').forEach(button => {
+      button.addEventListener('click', () => {
+        const input = document.getElementById('questionInput');
+        input.value = button.getAttribute('data-text');
+        input.focus();
+      });
+    });
+
+    // AJAX Form Submission
+    const form = document.getElementById('helpdeskForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const answerContent = document.getElementById('answerContent');
+    const roundsCount = document.getElementById('roundsCount');
+    const traceSection = document.getElementById('traceSection');
+    const traceCountBadge = document.getElementById('traceCountBadge');
+    const traceList = document.getElementById('traceList');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const question = document.getElementById('questionInput').value.trim();
+      if (!question) return;
+
+      // Loading state
+      submitBtn.disabled = true;
+      btnText.textContent = "Processing with AI Assistant...";
+      loadingSpinner.classList.remove('hidden');
+
+      try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const response = await fetch("{% url 'helpdesk_index' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ question })
+        });
+
+        const data = await response.json();
+
+        // Render result
+        resultsContainer.classList.remove('hidden');
+        answerContent.textContent = data.answer || "No response received.";
+        roundsCount.textContent = data.rounds || "0";
+
+        // Render Trace
+        if (data.trace && data.trace.length > 0) {
+          traceSection.classList.remove('hidden');
+          traceCountBadge.textContent = `${data.trace.length} call(s)`;
+          traceList.innerHTML = '';
+
+          data.trace.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "bg-slate-950 rounded-xl p-3 border border-slate-800";
+            
+            const header = document.createElement('div');
+            header.className = "flex items-center justify-between text-blue-400 mb-2 font-semibold";
+            header.innerHTML = `<span>Round ${item.round}: <span class="text-amber-300">${item.tool}</span>()</span>`;
+            card.appendChild(header);
+
+            const argsBlock = document.createElement('div');
+            argsBlock.className = "mb-2";
+            argsBlock.innerHTML = `
+              <span class="text-slate-500 font-sans">Arguments:</span>
+              <pre class="bg-slate-900 text-emerald-300 p-2 rounded mt-1 overflow-x-auto">${JSON.stringify(item.arguments, null, 2)}</pre>
+            `;
+            card.appendChild(argsBlock);
+
+            const resBlock = document.createElement('div');
+            resBlock.innerHTML = `
+              <span class="text-slate-500 font-sans">Database / Python Output:</span>
+              <pre class="bg-slate-900 text-slate-300 p-2 rounded mt-1 overflow-x-auto">${JSON.stringify(item.result, null, 2)}</pre>
+            `;
+            card.appendChild(resBlock);
+
+            traceList.appendChild(card);
+          });
+        } else {
+          traceSection.classList.add('hidden');
+        }
+
+        // Scroll to results
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      } catch (err) {
+        resultsContainer.classList.remove('hidden');
+        answerContent.textContent = "Error submitting question: " + err.message;
+        roundsCount.textContent = "0";
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = "Ask Assistant";
+        loadingSpinner.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

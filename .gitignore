@@ -1,0 +1,10 @@
+.env
+*.pyc
+__pycache__/
+db.sqlite3
+*.log
+.vscode/
+.idea/
+venv/
+env/
+Add-Content .gitignore "`n.venv/`nvenv/`nstaticfiles/`n.coverage`n.pytest_cache/"
